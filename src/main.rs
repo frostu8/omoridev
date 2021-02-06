@@ -5,18 +5,16 @@ use omoridev::event::script::{Script, ScriptInstruction, SelfSwitch};
 use omoridev::widget::ScriptEditor;
 
 fn build_test_script() -> Script {
-    let mut script = Script::new();
-
-    script.contents.push(ScriptInstruction::NoOp);
-    script.contents.push(ScriptInstruction::Wait(10));
-    script.contents.push(ScriptInstruction::NoOp);
-    script.contents.push(ScriptInstruction::NoOp);
-    script.contents.push(ScriptInstruction::NoOp);
-    script.contents.push(ScriptInstruction::Wait(1));
-    script.contents.push(ScriptInstruction::PluginCommand("ShowMessage fa_map_flavor.message_366".into()));
-    script.contents.push(ScriptInstruction::ControlSelfSwitch(SelfSwitch::A, true));
-
-    script
+    Script::new_with(|vec| {
+        vec.push(ScriptInstruction::NoOp);
+        vec.push(ScriptInstruction::Wait(10));
+        vec.push(ScriptInstruction::NoOp);
+        vec.push(ScriptInstruction::NoOp);
+        vec.push(ScriptInstruction::NoOp);
+        vec.push(ScriptInstruction::Wait(1));
+        vec.push(ScriptInstruction::PluginCommand("ShowMessage fa_map_flavor.message_366".into()));
+        vec.push(ScriptInstruction::ControlSelfSwitch(SelfSwitch::A, true));
+    })
 }
 
 fn build_ui() -> impl Widget<Script> {

@@ -1,18 +1,31 @@
 use druid::Data;
 
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
+use std::ops::Deref as _;
+use std::sync::Arc;
 
 use crate::util::bool_switch;
 
 #[derive(Clone, Data)]
 pub struct Script {
-    #[data(same_fn = "PartialEq::eq")]
-    pub contents: Vec<ScriptEntry>,
+    pub contents: Arc<Vec<ScriptEntry>>,
 }
 
 impl Script {
     pub fn new() -> Script {
-        Script { contents: Vec::new() }
+        Script::new_with(|_| {})
+    }
+
+    pub fn new_with<F>(mut f: F) -> Script 
+    where F: FnMut(&mut Vec<ScriptEntry>) {
+        let mut vec = Vec::new();
+        f(&mut vec);
+
+        Script { contents: Arc::new(vec) }
+    }
+    
+    pub fn contents(&self) -> &Vec<ScriptEntry> {
+        self.contents.deref()
     }
 }
 
