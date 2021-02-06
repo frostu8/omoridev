@@ -1,7 +1,7 @@
 use druid::{AppLauncher, WindowDesc, Widget, PlatformError};
 use druid::widget::{Scroll};
 
-use omoridev::event::script::{Script, ScriptInstruction};
+use omoridev::event::script::{Script, ScriptInstruction, SelfSwitch};
 use omoridev::widget::ScriptEditor;
 
 fn build_test_script() -> Script {
@@ -14,6 +14,7 @@ fn build_test_script() -> Script {
     script.contents.push(ScriptInstruction::NoOp);
     script.contents.push(ScriptInstruction::Wait(1));
     script.contents.push(ScriptInstruction::PluginCommand("ShowMessage fa_map_flavor.message_366".into()));
+    script.contents.push(ScriptInstruction::ControlSelfSwitch(SelfSwitch::A, true));
 
     script
 }

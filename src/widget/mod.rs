@@ -1,11 +1,12 @@
 //! Common widgets used in Omoridev.
 
-use druid::{Rect, Affine, FontFamily, Point};
+use druid::{Rect, Affine, FontFamily, Point, Color};
 use druid::piet::{TextLayoutBuilder, Text as _};
 use druid::widget::prelude::*;
 use druid::theme;
 
-use crate::event::script::Script;
+use crate::event::script::{Script, ScriptEntry, ScriptInstruction};
+use crate::util;
 
 /// RPGMaker MV script editor.
 pub struct ScriptEditor {
@@ -128,18 +129,18 @@ impl Widget<Script> for ScriptEditor {
                 // draw bg
                 let bg_rect = Rect::new(0.0, 0.0, size.width, self.entry_size);
 
-                ctx.fill(bg_rect,
-                    if i % 2 == 0 {
-                        &color_light
-                    } else {
-                        &color_dark
-                    }
-                );
+                let bg_color = if i % 2 == 0 {
+                    &color_light
+                } else {
+                    &color_dark
+                };
+
+                ctx.fill(bg_rect, bg_color);
 
                 // render script instruction text
                 let text_layout = ctx.text().new_text_layout(s.to_string())
                     .font(FontFamily::MONOSPACE, self.text_size)
-                    .text_color(env.get(theme::FOREGROUND_LIGHT))
+                    .text_color(script_highlight_color(&s, bg_color))
                     .build().unwrap();
 
                 ctx.draw_text(&text_layout, Point::new(self.text_margin(), self.text_margin()));
@@ -151,4 +152,25 @@ impl Widget<Script> for ScriptEditor {
             })
         }
     }
+}
+
+/// Gets the best highlight color of an instruction based on its background.
+pub fn script_highlight_color(entry: &ScriptEntry, bg: &Color) -> Color {
+    if util::is_dark(bg) { script_highlight_color_dark(entry) }
+    else { script_highlight_color_light(entry) }
+}
+
+/// Gets the highlight color of an instruction. For dark themes.
+pub fn script_highlight_color_dark(entry: &ScriptEntry) -> Color {
+    match entry {
+        ScriptInstruction::NoOp => Color::rgb8(255, 255, 255),
+        ScriptInstruction::Wait(_) => Color::rgb8(247, 32, 32),
+        ScriptInstruction::ControlSelfSwitch(_, _) => Color::rgb8(247, 32, 32),
+        ScriptInstruction::PluginCommand(_) => Color::rgb8(167, 92, 237),
+    }
+}
+
+/// Gets the highlight color of an instruction. For light themes.
+pub fn script_highlight_color_light(_entry: &ScriptEntry) -> Color {
+    unimplemented!("stub because light themes stink!");
 }
