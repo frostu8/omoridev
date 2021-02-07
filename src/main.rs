@@ -6,14 +6,11 @@ use omoridev::widget::ScriptEditor;
 
 fn build_test_script() -> Script {
     Script::new_with(|vec| {
-        vec.push(ScriptInstruction::NoOp);
         vec.push(ScriptInstruction::Wait(10));
-        vec.push(ScriptInstruction::NoOp);
-        vec.push(ScriptInstruction::NoOp);
-        vec.push(ScriptInstruction::NoOp);
-        vec.push(ScriptInstruction::Wait(1));
         vec.push(ScriptInstruction::PluginCommand("ShowMessage fa_map_flavor.message_366".into()));
         vec.push(ScriptInstruction::ControlSelfSwitch(SelfSwitch::A, true));
+        vec.push(ScriptInstruction::Script("$game.doThings(true);\n$game.doMoreThings(\"lol\");".into()));
+        vec.push(ScriptInstruction::ControlSelfSwitch(SelfSwitch::B, true));
     })
 }
 

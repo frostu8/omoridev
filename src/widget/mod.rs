@@ -1,7 +1,6 @@
 //! Common widgets used in Omoridev.
 
-use druid::{Rect, Affine, FontFamily, Point, Color};
-use druid::piet::{TextLayoutBuilder, Text as _};
+use druid::{Rect, Affine, FontFamily, FontDescriptor, Point, Color, TextLayout};
 use druid::widget::prelude::*;
 use druid::theme;
 
@@ -10,26 +9,28 @@ use crate::util;
 
 /// RPGMaker MV script editor.
 pub struct ScriptEditor {
-    entry_size: f64,
     text_size: f64,
+    text_padding: f64,
     border_width: f64,
 
     selected: usize,
+    entry_layouts: Vec<TextLayout<String>>,
 }
 
 impl ScriptEditor {
     pub fn new() -> ScriptEditor {
         ScriptEditor {
-            entry_size: 30.0,
+            text_padding: 5.0,
             text_size: 17.0,
             border_width: 1.0,
 
             selected: 0,
+            entry_layouts: Vec::new(),
         }
     }
 
-    pub fn with_entry_size(mut self, entry_size: f64) -> ScriptEditor {
-        self.entry_size = entry_size;
+    pub fn with_text_padding(mut self, text_padding: f64) -> ScriptEditor {
+        self.text_padding = text_padding;
         self
     }
 
@@ -43,8 +44,47 @@ impl ScriptEditor {
         self
     }
 
-    fn text_margin(&self) -> f64 {
-        (self.entry_size - self.text_size) / 2.0
+    fn reconstruct_text_layouts(&mut self, script: &Script, env: &Env) {
+        // clear layouts
+        self.entry_layouts.clear();
+
+        // build text layouts
+        for (i, entry) in script.contents().iter().enumerate() {
+            let mut text_layout = TextLayout::<String>::from_text(entry.to_string());
+
+            text_layout.set_font(FontDescriptor::new(FontFamily::MONOSPACE)
+                .with_size(self.text_size));
+            text_layout.set_text_color(script_highlight_color(&entry, &bg_color(i, env)));
+
+            self.entry_layouts.push(text_layout);
+        }
+    }
+
+    fn vertical_bounds(&self, i: usize) -> f64 {
+        let mut bounds: f64 = 0.0;
+
+        for text_layout in self.entry_layouts.iter().take(i) {
+            bounds += self.entry_size(&text_layout);
+        }
+
+        bounds
+    }
+
+    fn find_entry_physical(&self, y: f64) -> usize {
+        // if the y is greater than all of the vertical bounds, then quit early
+        if y > self.vertical_bounds(self.entry_layouts.len()) {
+            self.entry_layouts.len()
+        } else {
+            (0..self.entry_layouts.len())
+                .map(|i| (i, self.vertical_bounds(i)))
+                .find(|(_, b)| *b > y)
+                .map(|(i, _)| i)
+                .unwrap_or(self.entry_layouts.len()) - 1
+        }
+    }
+
+    fn entry_size(&self, text_layout: &TextLayout<String>) -> f64 {
+        text_layout.layout_metrics().size.height + self.text_padding * 2.0
     }
 }
 
@@ -61,7 +101,7 @@ impl Widget<Script> for ScriptEditor {
             Event::MouseDown(event) => {
                 // we do not have to worry about x or width because
                 // each instruction is the same width
-                let i = (event.pos.y / self.entry_size) as usize;
+                let i = self.find_entry_physical(event.pos.y);
 
                 // simply set the selected to i, since the empty void should
                 // deselect, which it does
@@ -82,6 +122,10 @@ impl Widget<Script> for ScriptEditor {
         env: &Env,
     ) {
         // process lifecycle events from druid
+        match event {
+            LifeCycle::WidgetAdded => self.reconstruct_text_layouts(data, env),
+            _ => (),
+        }
     }
 
     fn update(
@@ -91,7 +135,11 @@ impl Widget<Script> for ScriptEditor {
         data: &Script,
         env: &Env,
     ) {
-        // process data model updates
+        if old_data.contents() != data.contents() {
+            // process data model updates
+            self.reconstruct_text_layouts(data, env);
+            ctx.request_layout();
+        }
     }
 
     fn layout(
@@ -101,11 +149,16 @@ impl Widget<Script> for ScriptEditor {
         data: &Script,
         env: &Env,
     ) -> Size {
+        // rebuild text layouts
+        for layout in self.entry_layouts.iter_mut() {
+            layout.rebuild_if_needed(ctx.text(), env);
+        }
+
         // process layout changes
         bc.constrain(Size::new(
             // for now just use this
             bc.max().width,
-            data.contents.len() as f64 * self.entry_size,
+            self.vertical_bounds(self.entry_layouts.len()),
         ))
     }
 
@@ -118,32 +171,18 @@ impl Widget<Script> for ScriptEditor {
         // paint the widget
         let size = ctx.size();
 
-        let color_light = env.get(theme::BACKGROUND_LIGHT);
-        let color_dark = env.get(theme::BACKGROUND_DARK);
         let color_selected = env.get(theme::PRIMARY_LIGHT);
 
-        for (i, s) in data.contents.iter().enumerate() {
+        for (i, layout) in self.entry_layouts.iter().enumerate() {
             ctx.with_save(|ctx| {
-                ctx.transform(Affine::translate((0.0, i as f64 * self.entry_size)));
+                ctx.transform(Affine::translate((0.0, self.vertical_bounds(i))));
 
                 // draw bg
-                let bg_rect = Rect::new(0.0, 0.0, size.width, self.entry_size);
+                let bg_rect = Rect::new(0.0, 0.0, size.width, self.entry_size(&layout));
 
-                let bg_color = if i % 2 == 0 {
-                    &color_light
-                } else {
-                    &color_dark
-                };
+                ctx.fill(bg_rect, &bg_color(i, env));
 
-                ctx.fill(bg_rect, bg_color);
-
-                // render script instruction text
-                let text_layout = ctx.text().new_text_layout(s.to_string())
-                    .font(FontFamily::MONOSPACE, self.text_size)
-                    .text_color(script_highlight_color(&s, bg_color))
-                    .build().unwrap();
-
-                ctx.draw_text(&text_layout, Point::new(self.text_margin(), self.text_margin()));
+                layout.draw(ctx, Point::new(self.text_padding, self.text_padding));
 
                 // draw border if selected
                 if self.selected == i {
@@ -167,10 +206,19 @@ pub fn script_highlight_color_dark(entry: &ScriptEntry) -> Color {
         ScriptInstruction::Wait(_) => Color::rgb8(247, 32, 32),
         ScriptInstruction::ControlSelfSwitch(_, _) => Color::rgb8(247, 32, 32),
         ScriptInstruction::PluginCommand(_) => Color::rgb8(167, 92, 237),
+        ScriptInstruction::Script(_) => Color::rgb8(119, 52, 235),
     }
 }
 
 /// Gets the highlight color of an instruction. For light themes.
 pub fn script_highlight_color_light(_entry: &ScriptEntry) -> Color {
     unimplemented!("stub because light themes stink!");
+}
+
+fn bg_color(i: usize, env: &Env) -> Color {
+    if i % 2 == 0 {
+        env.get(theme::BACKGROUND_LIGHT)
+    } else {
+        env.get(theme::BACKGROUND_DARK)
+    }
 }

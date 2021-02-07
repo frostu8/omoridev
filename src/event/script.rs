@@ -37,6 +37,7 @@ pub enum ScriptInstruction {
     Wait(u32),
     ControlSelfSwitch(SelfSwitch, bool),
     PluginCommand(String),
+    Script(String),
 }
 
 impl Display for ScriptInstruction {
@@ -46,6 +47,7 @@ impl Display for ScriptInstruction {
             ScriptInstruction::Wait(frames) => write!(f, "Wait: {} frame{}", frames, if *frames == 1 { "" } else { "s" }),
             ScriptInstruction::ControlSelfSwitch(swi, on) => write!(f, "Control Self Switch: {} = {}", swi, bool_switch(on)),
             ScriptInstruction::PluginCommand(args) => write!(f, "Plugin Command: {}", args),
+            ScriptInstruction::Script(script) => write!(f, "    Script:\n{}", script),
         }
     }
 }
