@@ -9,3 +9,4 @@ description = "Tools for OMORI modding."
 
 [dependencies]
 druid = { git = "https://github.com/linebender/druid.git" }
+log = "0.4"
